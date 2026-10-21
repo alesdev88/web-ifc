@@ -1286,39 +1286,86 @@ namespace bimGeometry
         auto inner = [&](size_t i, size_t j) {
             return dpts[i] + (curves[i][j] - dpts[i]) * (innerRadius / radius);
         };
-        auto face = [&](glm::dvec3 a, glm::dvec3 b, glm::dvec3 c, glm::dvec3 outward) {
-            if (glm::dot(glm::cross(b - a, c - a), outward) < 0) std::swap(b, c);
+        // Indexed emission: ring vertices are shared between the quads of a wall
+        // (smooth radial normals, as before e75d98ef); cap vertices are separate so
+        // they carry the axial normal. Positions are bit-identical across the walls
+        // and caps, so a position weld (e.g. our VertexWelder) closes the solid.
+        auto face = [&](uint32_t a, uint32_t b, uint32_t c, const glm::dvec3 &outward) {
+            const glm::dvec3 pa = geom.GetPoint(a), pb = geom.GetPoint(b), pc = geom.GetPoint(c);
+            // Degenerate-triangle culling identical to the soup path this replaces:
+            // Geometry::AddFace(dvec3, dvec3, dvec3) (geometry.cpp) rejects a triangle
+            // whose computeSafeNormal fails at toleranceAddFace (edge cross product of
+            // length <= 1e-10) before adding any vertex, so the indexed emission must
+            // never index a face the soup emission would have dropped.
+            glm::dvec3 safeNormal;
+            if (!computeSafeNormal(pa, pb, pc, safeNormal, toleranceAddFace)) return;
+            if (glm::dot(glm::cross(pb - pa, pc - pa), outward) < 0) std::swap(b, c);
             geom.AddFace(a, b, c);
         };
-        for (size_t i = 1; i < curves.size(); ++i)
+        const size_t ringCount = curves.size();
+        std::vector<uint32_t> outerIdx(ringCount * count), innerIdx;
+        for (size_t i = 0; i < ringCount; ++i)
+            for (size_t j = 0; j < count; ++j)
+            {
+                glm::dvec3 n = curves[i][j] - dpts[i];
+                const double len = glm::length(n);
+                n = len > 0 ? n / len : glm::dvec3(0, 0, 1);
+                geom.AddPoint(curves[i][j], n);
+                outerIdx[i * count + j] = geom.numPoints - 1;
+            }
+        if (innerRadius > 0)
+        {
+            innerIdx.resize(ringCount * count);
+            for (size_t i = 0; i < ringCount; ++i)
+                for (size_t j = 0; j < count; ++j)
+                {
+                    const glm::dvec3 p = inner(i, j);
+                    glm::dvec3 n = dpts[i] - p;
+                    const double len = glm::length(n);
+                    n = len > 0 ? n / len : glm::dvec3(0, 0, 1);
+                    geom.AddPoint(p, n);
+                    innerIdx[i * count + j] = geom.numPoints - 1;
+                }
+        }
+        for (size_t i = 1; i < ringCount; ++i)
         {
             for (size_t j = 0; j < count; ++j)
             {
                 const size_t k = (j + 1) % count;
                 const glm::dvec3 radial = (curves[i - 1][j] + curves[i - 1][k]) * 0.5 - dpts[i - 1];
-                face(curves[i - 1][j], curves[i - 1][k], curves[i][k], radial);
-                face(curves[i - 1][j], curves[i][k], curves[i][j], radial);
+                face(outerIdx[(i - 1) * count + j], outerIdx[(i - 1) * count + k], outerIdx[i * count + k], radial);
+                face(outerIdx[(i - 1) * count + j], outerIdx[i * count + k], outerIdx[i * count + j], radial);
                 if (innerRadius > 0)
                 {
-                    face(inner(i - 1, j), inner(i - 1, k), inner(i, k), -radial);
-                    face(inner(i - 1, j), inner(i, k), inner(i, j), -radial);
+                    face(innerIdx[(i - 1) * count + j], innerIdx[(i - 1) * count + k], innerIdx[i * count + k], -radial);
+                    face(innerIdx[(i - 1) * count + j], innerIdx[i * count + k], innerIdx[i * count + j], -radial);
                 }
             }
         }
         if (!closed)
         {
-            for (size_t i : {size_t(0), curves.size() - 1})
+            for (size_t i : {size_t(0), ringCount - 1})
             {
-                const glm::dvec3 normal = i == 0 ? dpts[0] - dpts[1] : dpts[i] - dpts[i - 1];
+                const glm::dvec3 axis = i == 0 ? dpts[0] - dpts[1] : dpts[i] - dpts[i - 1];
+                const glm::dvec3 normal = glm::normalize(axis);
+                std::vector<uint32_t> capOuter(count), capInner;
+                for (size_t j = 0; j < count; ++j) { geom.AddPoint(curves[i][j], normal); capOuter[j] = geom.numPoints - 1; }
+                uint32_t center = 0;
+                if (innerRadius > 0)
+                {
+                    capInner.resize(count);
+                    for (size_t j = 0; j < count; ++j) { geom.AddPoint(inner(i, j), normal); capInner[j] = geom.numPoints - 1; }
+                }
+                else { geom.AddPoint(dpts[i], normal); center = geom.numPoints - 1; }
                 for (size_t j = 0; j < count; ++j)
                 {
                     const size_t k = (j + 1) % count;
                     if (innerRadius > 0)
                     {
-                        face(curves[i][j], curves[i][k], inner(i, k), normal);
-                        face(curves[i][j], inner(i, k), inner(i, j), normal);
+                        face(capOuter[j], capOuter[k], capInner[k], axis);
+                        face(capOuter[j], capInner[k], capInner[j], axis);
                     }
-                    else face(dpts[i], curves[i][j], curves[i][k], normal);
+                    else face(center, capOuter[j], capOuter[k], axis);
                 }
             }
         }
