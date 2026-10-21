@@ -468,6 +468,25 @@ namespace webifc::geometry
                 uint32_t firstOperandID = _loader.GetRefArgument();
                 uint32_t secondOperandID = _loader.GetRefArgument();
 
+                // IFC Canvas (boolean cycle guard): bound the boolean operand recursion
+                // (cf. upstream 215706d3's placement guard). A self-referencing or
+                // mutually referencing IfcBooleanClippingResult / IfcBooleanResult is
+                // malformed input that no cancellation hook can stop: at the 61384fe6 pin
+                // it overflowed the stack, with the deep-chain flatten (de24211b) it runs
+                // unbounded instead. The element comes out empty, which is what the
+                // loader does for every other unprocessable representation.
+                if (_activeBooleans.size() >= 4096 || !_activeBooleans.insert(expressID).second)
+                {
+                    spdlog::error("[GetMesh()] Cyclic or excessively deep boolean {}", expressID);
+                    return mesh;
+                }
+                struct ActiveBooleanScope
+                {
+                    std::unordered_set<uint32_t> &active;
+                    uint32_t id;
+                    ~ActiveBooleanScope() { active.erase(id); }
+                } activeBoolean{_activeBooleans, expressID};
+
                 // DEEP-CHAIN FLATTEN (fixes #1197; also helps deep-chain #1774/#1999): Tekla/Revit
                 // emit (((base - c1) - c2) - ... - cn) as a spine of nested clippings. Processing it
                 // recursively re-runs a full CSG pass per level over the growing result -> ~O(n^2),
@@ -488,8 +507,12 @@ namespace webifc::geometry
                     uint32_t baseID = firstOperandID;
                     bool nonFaceted = !isFacetedCut(secondOperandID);
                     cutterIDs.push_back(secondOperandID);
+                    std::unordered_set<uint32_t> walkedSpine{expressID};
                     while (true)
                     {
+                        // IFC Canvas (boolean cycle guard): a malformed (cyclic) spine must
+                        // terminate; the operand recursion below is bounded by _activeBooleans.
+                        if (!walkedSpine.insert(baseID).second) break;
                         auto lt = _loader.GetLineType(baseID);
                         if (lt == schema::IFCBOOLEANCLIPPINGRESULT)
                         {
@@ -576,6 +599,25 @@ namespace webifc::geometry
                 uint32_t firstOperandID = _loader.GetRefArgument();
                 uint32_t secondOperandID = _loader.GetRefArgument();
 
+                // IFC Canvas (boolean cycle guard): bound the boolean operand recursion
+                // (cf. upstream 215706d3's placement guard). A self-referencing or
+                // mutually referencing IfcBooleanClippingResult / IfcBooleanResult is
+                // malformed input that no cancellation hook can stop: at the 61384fe6 pin
+                // it overflowed the stack, with the deep-chain flatten (de24211b) it runs
+                // unbounded instead. The element comes out empty, which is what the
+                // loader does for every other unprocessable representation.
+                if (_activeBooleans.size() >= 4096 || !_activeBooleans.insert(expressID).second)
+                {
+                    spdlog::error("[GetMesh()] Cyclic or excessively deep boolean {}", expressID);
+                    return mesh;
+                }
+                struct ActiveBooleanScope
+                {
+                    std::unordered_set<uint32_t> &active;
+                    uint32_t id;
+                    ~ActiveBooleanScope() { active.erase(id); }
+                } activeBoolean{_activeBooleans, expressID};
+
                 // DEEP-CHAIN FLATTEN (perf, same rationale as IFCBOOLEANCLIPPINGRESULT above):
                 // a long pure-DIFFERENCE spine (#1774: 1175 nested IfcBooleanResult extrusion cuts)
                 // hangs when processed recursively (one CSG pass per level). Collect the whole
@@ -593,8 +635,12 @@ namespace webifc::geometry
                     uint32_t baseID = firstOperandID;
                     bool nonFaceted = !isFacetedCut(secondOperandID);
                     cutterIDs.push_back(secondOperandID);
+                    std::unordered_set<uint32_t> walkedSpine{expressID};
                     while (true)
                     {
+                        // IFC Canvas (boolean cycle guard): a malformed (cyclic) spine must
+                        // terminate; the operand recursion below is bounded by _activeBooleans.
+                        if (!walkedSpine.insert(baseID).second) break;
                         auto lt = _loader.GetLineType(baseID);
                         if (lt == schema::IFCBOOLEANCLIPPINGRESULT)
                         {
@@ -662,8 +708,12 @@ namespace webifc::geometry
                 {
                     cutterIDs.push_back(secondOperandID);
                     if (isFaceted(secondOperandID)) noFacetedCutter = false;
+                    std::unordered_set<uint32_t> walkedSpine{expressID};
                     while (true)
                     {
+                        // IFC Canvas (boolean cycle guard): a malformed (cyclic) spine must
+                        // terminate; the operand recursion below is bounded by _activeBooleans.
+                        if (!walkedSpine.insert(baseID).second) break;
                         auto lt = _loader.GetLineType(baseID);
                         if (lt == schema::IFCBOOLEANCLIPPINGRESULT)
                         {

@@ -3,6 +3,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 #pragma once
+#include <unordered_set> // IFC Canvas: _activeBooleans (boolean cycle guard, see below)
 
 #include <glm/glm.hpp>
 #include <string>
@@ -94,6 +95,13 @@ namespace webifc::geometry
     const parsing::IfcLoader &_loader;
     webifc::cache::IfcCache _cache;
     booleanManager _boolEngine;
+    // IFC Canvas (boolean cycle guard): the boolean results currently being
+    // meshed on this call stack (see GetMeshUncached's IFCBOOLEANCLIPPINGRESULT
+    // and IFCBOOLEANRESULT cases). Declared here, right after _boolEngine, on
+    // purpose: outside the cooperative-cancel patch's member hunk and the
+    // repmap-memo patch's header hunk, so each patch's own `git apply --reverse
+    // --check` (Scripts/build_webifc.sh's rerun path) still finds its post-image.
+    std::unordered_set<uint32_t> _activeBooleans;
     const schema::IfcSchemaManager &_schemaManager;
     bool _isCoordinated = false;
     uint32_t _expressIdCyl = 0;
