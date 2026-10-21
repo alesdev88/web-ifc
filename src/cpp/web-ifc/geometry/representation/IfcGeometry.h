@@ -54,6 +54,15 @@ namespace webifc::geometry {
 		Vec halfSpaceZ = Vec(0, 0, 1);
 		Vec halfSpaceOrigin = Vec(0, 0, 0);
 		Vec normalizationCenter = Vec(0, 0, 0);
+		// IFC Canvas (roadmap 46, parse-01): whether the stored faces are
+		// currently reversed relative to the tessellated originals. ReverseFaces()
+		// is an involution (it swaps i0/i2 per face), not idempotent, so a leaf
+		// that outlives one IfcGeometryProcessor::AddComposedMeshToFlatMesh visit
+		// (the per-IfcRepresentationMap memo) needs this flag to be brought to
+		// the visiting instance's handedness exactly once — the same role
+		// `normalized` plays for Normalize(). Callers toggle it together with
+		// ReverseFaces(); the default matches a fresh tessellation.
+		bool reversed = false;
 
 		void ReverseFaces();
 		void AddPart(IfcGeometry geom);
