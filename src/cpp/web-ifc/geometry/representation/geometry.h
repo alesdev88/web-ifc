@@ -189,7 +189,15 @@ namespace webifc::geometry {
 		struct IfcPlacedGeometry
 		{
 			glm::dvec4 color;
-			glm::dmat4 transformation;
+			// Member-initialized to identity: glm in this tree ships with
+			// GLM_CONFIG_CTOR_INIT == GLM_CTOR_INIT_DISABLE (no GLM_FORCE_CTOR_INIT
+			// is defined anywhere in web-ifc), so a default-constructed dmat4 holds
+			// indeterminate memory. IfcGeometryProcessor default-constructs an
+			// IfcPlacedGeometry local and calls testReverse() on it BEFORE assigning
+			// transformation (IfcGeometryProcessor.cpp) — reading indeterminate
+			// bytes there is UB and can drive a garbage ReverseFaces(). Initializing
+			// to identity makes testReverse() deterministically false (no reversal).
+			glm::dmat4 transformation = glm::dmat4(1.0);
 			std::array<double, 16> flatTransformation;
 			uint32_t geometryExpressID;
 

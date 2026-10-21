@@ -7,11 +7,13 @@
 #include <glm/glm.hpp>
 #include <string>
 #include <cstdint>
+#include <functional>
 #include "representation/geometry.h"
 #include "../parsing/IfcLoader.h"
 #include "../cache/IfcCache.h"
 #include "../schema/IfcSchemaManager.h"
 #include "IfcGeometryLoader.h"
+#include "IfcCancellation.h"
 
 namespace fuzzybools
 {
@@ -57,6 +59,13 @@ namespace webifc::geometry
     IfcGeometryLoader& GetLoader();
     IfcFlatMesh GetFlatMesh(uint32_t expressID, bool applyLinearScalingFactor = true);
     IfcComposedMesh GetMesh(uint32_t expressID);
+    // Install a cooperative cancellation predicate observed by the long-running
+    // geometry loops (see IfcCancellation.h). It is armed for the duration of
+    // each GetFlatMesh call and checked at the boolean pipeline's outer loop
+    // heads; a `true` return aborts meshing by throwing MeshingCancelled. Pass an
+    // empty std::function to disable. Not thread-safe against a concurrent
+    // GetFlatMesh on the same processor (web-ifc meshes one element at a time).
+    void SetCancellationCheck(std::function<bool()> check);
     void SetTransformation(const std::array<double, 16> &val);
     std::array<double, 16> GetFlatCoordinationMatrix() const;
     glm::dmat4 GetCoordinationMatrix() const;
@@ -76,6 +85,9 @@ namespace webifc::geometry
     size_t _mappedRepresentationsBytes = 0;
     uint64_t _mappedRepresentationsRevision = 0;
     IfcComposedMesh GetMeshUncached(uint32_t expressID, uint32_t lineType);
+    // Cooperative cancellation predicate (see SetCancellationCheck). Empty by
+    // default; installed into the thread-local hook around each GetFlatMesh.
+    std::function<bool()> _cancellationCheck;
     IfcSurface GetSurface(uint32_t expressID);
     IfcGeometryLoader _geometryLoader;
     glm::dmat4 _transformation = glm::dmat4(1.0);

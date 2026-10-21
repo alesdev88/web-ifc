@@ -11,6 +11,10 @@
 #include "geometry.h"
 #include "bvh.h"
 
+// Cooperative meshing-cancellation hook (per-element time budget / document
+// cancel) — checked at the per-face clip loop heads.
+#include "../../IfcCancellation.h"
+
 namespace fuzzybools
 {
     static void doubleClipSingleMesh(Geometry& mesh, BVH& bvh1, BVH& bvh2, Geometry& result)
@@ -29,6 +33,9 @@ namespace fuzzybools
 
         for (uint32_t i = 0; i < mesh.data; i++)
         {
+            // O(faces^2) clip (boundingList + ray casts) — cancellation check per face.
+            webifc::geometry::CheckCancellation();
+
             bool doit = false;
             Face tri = mesh.GetFace(i);
             glm::dvec3 a = mesh.GetPoint(tri.i0);
@@ -236,6 +243,9 @@ namespace fuzzybools
 
         for (uint32_t i = 0; i < mesh.data; i++)
         {
+            // O(faces) ray casts per face — cancellation check per face.
+            webifc::geometry::CheckCancellation();
+
             Face tri = mesh.GetFace(i);
             glm::dvec3 a = mesh.GetPoint(tri.i0);
             glm::dvec3 b = mesh.GetPoint(tri.i1);
