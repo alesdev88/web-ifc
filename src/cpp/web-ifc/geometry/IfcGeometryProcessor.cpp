@@ -320,6 +320,29 @@ namespace webifc::geometry
 
         mesh.transformation = glm::dmat4(1);
 
+        // IFC Canvas (patch 05, boolean depth bound): bound the nested-boolean
+        // recursion BELOW the stack limit of the thread that drains the kernel.
+        // Patch 03's depth half (_activeBooleans.size() >= 4096) cannot fire:
+        // each nested level costs one GetMeshUncached frame of 6304 B (GetMesh
+        // tail-calls it; prologue 0xa0 + 0x1800, both slices), so the 16 MiB
+        // drain thread overflows first (measured on the simulator: depth 2624
+        // meshes, depth 2656 dies on the stack guard; the device slice has the
+        // same 6304 B frame, so N_device = 2656 at the simulator's base use).
+        // K = 1024, the largest power of two <= 0.5 x 2656: 2.6x headroom,
+        // 6.2 MiB of the 16 MiB stack at depth K. Depth K meshes and depth K + 1
+        // returns the empty composed mesh (the check runs before 03's insert,
+        // so the (K+1)-th nested boolean sees size() == K). It counts booleans
+        // on this call stack and does not depend on the running thread; the
+        // IFCVIEWER_KERNEL_DRAIN_THREAD=0 pool arm (~512 KiB) still overflows at
+        // about 74 levels and is NOT protected by it.
+        static constexpr std::size_t kIfcCanvasMaxActiveBooleans = 1024;
+        if ((lineType == schema::IFCBOOLEANRESULT || lineType == schema::IFCBOOLEANCLIPPINGRESULT) &&
+            _activeBooleans.size() >= kIfcCanvasMaxActiveBooleans)
+        {
+            spdlog::error("[GetMesh()] Boolean nesting deeper than {} at {}", kIfcCanvasMaxActiveBooleans, expressID);
+            return mesh;
+        }
+
         if (_schemaManager.IsIfcElement(lineType))
         {
             _loader.MoveToArgumentOffset(expressID, 5);
