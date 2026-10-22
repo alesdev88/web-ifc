@@ -73,6 +73,94 @@ namespace webifc::geometry
         _expressIDToGeometry.clear();
         std::unordered_map<uint32_t, IfcGeometry>().swap(_expressIDToGeometry);
         _cache.Clear();
+        // IFC Canvas (roadmap 46): the memo references leaves by id inside the
+        // geometry cache just dropped — nothing survives a Clear().
+        std::unordered_map<uint32_t, MapMemoEntry>().swap(_mapMemo);
+        std::unordered_set<uint32_t>().swap(_booleanTainted);
+    }
+
+    void IfcGeometryProcessor::SetRepresentationMapMemoEnabled(bool enabled)
+    {
+        _mapMemoEnabled = enabled;
+        if (!enabled)
+        {
+            std::unordered_map<uint32_t, MapMemoEntry>().swap(_mapMemo);
+        }
+    }
+
+    IfcGeometryProcessor::RepresentationMapMemoStats IfcGeometryProcessor::GetRepresentationMapMemoStats() const
+    {
+        return _mapMemoStats;
+    }
+
+    void IfcGeometryProcessor::CollectLeafIDs(const IfcComposedMesh &mesh, std::vector<uint32_t> &leafIDs)
+    {
+        if (mesh.hasGeometry)
+        {
+            leafIDs.push_back(mesh.expressID);
+        }
+        for (const auto &child : mesh.children)
+        {
+            CollectLeafIDs(child, leafIDs);
+        }
+    }
+
+    // The IfcMappedItem -> IfcRepresentationMap edge, memoised per map id (IFC
+    // Canvas, roadmap 46). Outside any boolean/void context a validated hit
+    // returns a copy of the stored composed tree without recursing; a miss
+    // recurses exactly as GetMesh(mapExpressID) always did, then stores the
+    // tree with its hasGeometry ids. Inside a boolean/void context, or with the
+    // memo disabled, this IS GetMesh(mapExpressID).
+    IfcComposedMesh IfcGeometryProcessor::GetMappedRepresentation(uint32_t mapExpressID)
+    {
+        if (!_mapMemoEnabled)
+        {
+            return GetMesh(mapExpressID);
+        }
+        if (_boolContextDepth > 0)
+        {
+            _mapMemoStats.skippedBooleanContext++;
+            return GetMesh(mapExpressID);
+        }
+
+        auto memoIt = _mapMemo.find(mapExpressID);
+        if (memoIt != _mapMemo.end())
+        {
+            bool valid = true;
+            for (const uint32_t leafID : memoIt->second.leafIDs)
+            {
+                if (_expressIDToGeometry.find(leafID) == _expressIDToGeometry.end() ||
+                    _booleanTainted.find(leafID) != _booleanTainted.end())
+                {
+                    valid = false;
+                    break;
+                }
+            }
+            if (valid)
+            {
+                _mapMemoStats.hits++;
+                return memoIt->second.mesh;
+            }
+            _mapMemoStats.invalidated++;
+            _mapMemo.erase(memoIt);
+        }
+
+        _mapMemoStats.misses++;
+        IfcComposedMesh mesh = GetMesh(mapExpressID);
+        MapMemoEntry entry;
+        entry.mesh = mesh;
+        CollectLeafIDs(mesh, entry.leafIDs);
+        // Every leaf collected here was either just re-tessellated by this
+        // recursion (a fresh, pristine IfcGeometry now sits at its id) or came
+        // from a nested validated hit (never tainted), so a stale taint on any
+        // of them no longer describes the cache: lift it, or the map would miss
+        // on every visit until the next Clear() once one instance was voided.
+        for (const uint32_t leafID : entry.leafIDs)
+        {
+            _booleanTainted.erase(leafID);
+        }
+        _mapMemo[mapExpressID] = std::move(entry);
+        return mesh;
     }
 
     std::array<double, 16> IfcGeometryProcessor::GetFlatCoordinationMatrix() const
@@ -186,13 +274,31 @@ namespace webifc::geometry
                 mesh.transformation = _geometryLoader.GetLocalPlacement(localPlacement);
             }
 
+            // IFC Canvas (roadmap 46): the relVoids lookup is hoisted above the
+            // body recursion (the cache map is built in the IfcCache ctor and
+            // never mutated by GetMesh, so this is a pure reorder). A voided
+            // element's own body and every void operand are meshed inside a
+            // boolean context, so the per-IfcRepresentationMap memo is bypassed
+            // for them: ApplyBooleanToMeshChildren below overwrites the body's
+            // leaves in place and needs them fresh (un-normalized), exactly as
+            // the recompute path has always produced them.
+            auto relVoidsIt = relVoids.find(expressID);
+            const bool hasVoids = (relVoidsIt != relVoids.end() && !relVoidsIt->second.empty());
+
             if (ifcPresentation != 0 && _loader.IsValidExpressID(ifcPresentation))
             {
-                mesh.children.push_back(GetMesh(ifcPresentation));
+                if (hasVoids)
+                {
+                    BoolContextScope voidedBody(_boolContextDepth);
+                    mesh.children.push_back(GetMesh(ifcPresentation));
+                }
+                else
+                {
+                    mesh.children.push_back(GetMesh(ifcPresentation));
+                }
             }
 
-            auto relVoidsIt = relVoids.find(expressID);
-            if (relVoidsIt != relVoids.end() && !relVoidsIt->second.empty())
+            if (hasVoids)
             {
                 auto origin = GetOrigin(mesh, _expressIDToGeometry);
                 auto normalizeMat = glm::translate(-origin);
@@ -201,7 +307,7 @@ namespace webifc::geometry
 
                 for (auto relVoidExpressID : relVoidsIt->second)
                 {
-
+                    BoolContextScope voidOperand(_boolContextDepth);
                     IfcComposedMesh voidGeom = GetMesh(relVoidExpressID);
                     auto flatVoidMesh = flatten(voidGeom, _expressIDToGeometry, normalizeMat);
                     voidGeoms.insert(voidGeoms.end(), flatVoidMesh.begin(), flatVoidMesh.end());
@@ -281,12 +387,16 @@ namespace webifc::geometry
                 uint32_t localPlacement = _loader.GetRefArgument();
 
                 mesh.transformation = _geometryLoader.GetLocalPlacement(localPlacement);
-                mesh.children.push_back(GetMesh(ifcPresentation));
+                // IFC Canvas (roadmap 46): the map's tree is memoised per map id.
+                mesh.children.push_back(GetMappedRepresentation(ifcPresentation));
 
                 return mesh;
             }
             case schema::IFCBOOLEANCLIPPINGRESULT:
             {
+                // IFC Canvas (roadmap 46): both operands are meshed in a boolean
+                // context (no per-map memo hit inside — flatten() needs fresh leaves).
+                BoolContextScope booleanOperands(_boolContextDepth);
                 _loader.MoveToArgumentOffset(expressID, 1);
                 uint32_t firstOperandID = _loader.GetRefArgument();
                 uint32_t secondOperandID = _loader.GetRefArgument();
@@ -318,6 +428,9 @@ namespace webifc::geometry
             {
                 // @Refactor: duplicate of above
 
+                // IFC Canvas (roadmap 46): every operand recursion below (nested
+                // and N-ary paths alike) runs in a boolean context.
+                BoolContextScope booleanOperands(_boolContextDepth);
                 _loader.MoveToArgumentOffset(expressID, 0);
                 std::string_view op = _loader.GetStringArgument();
 
@@ -1868,7 +1981,9 @@ namespace webifc::geometry
                 }
             }
 
-            auto geom = _expressIDToGeometry[composedMesh.expressID];
+            // IFC Canvas (roadmap 46): mutate the cached leaf in place instead of
+            // copy + write-back (same result, no double copy of the vertex data).
+            auto &geom = _expressIDToGeometry[composedMesh.expressID];
             if (geom.isPolygon)
             {
                 if (!_settings._exportPolylines)
@@ -1884,15 +1999,21 @@ namespace webifc::geometry
             // transformation (coordination + placement; the later Normalize adds only a
             // translation, det +1, so it can't change handedness) before testing.
             geometry.transformation = _coordinationMatrix * newMatrix;
-            if (geometry.testReverse())
+            // IFC Canvas (roadmap 46): idempotent reversal. ReverseFaces() is an
+            // involution, so a leaf that outlives one visit (the per-map memo)
+            // is toggled only when its stored handedness differs from the one
+            // this instance needs; a fresh leaf (reversed == false) behaves as
+            // before.
+            if (geometry.testReverse() != geom.reversed)
+            {
                 geom.ReverseFaces();
+                geom.reversed = !geom.reversed;
+            }
 
             auto translation = glm::dmat4(1.0);
 
             // #1462 Reports having problems with this line, not sure why this is needed
             translation = geom.Normalize();
-
-            _expressIDToGeometry[composedMesh.expressID] = geom;
 
             if (!composedMesh.hasColor)
             {
@@ -1965,6 +2086,9 @@ namespace webifc::geometry
                 localGeomMerged.MergeGeometry(geom);
             }
             _expressIDToGeometry[composedMesh.expressID] = localGeomMerged;
+            // IFC Canvas (roadmap 46): this id no longer holds the pristine leaf
+            // a memoised map tree expects — any entry referencing it must miss.
+            _booleanTainted.insert(composedMesh.expressID);
         }
         for (auto &c : composedMesh.children)
         {
