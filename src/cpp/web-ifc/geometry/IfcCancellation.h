@@ -6,19 +6,29 @@
 
 // Cooperative meshing-cancellation hook for IfcGeometryProcessor.
 //
-// Motivation: a single pathological element can spin inside GetFlatMesh's
-// mesh-boolean pipeline (the in-tree fuzzybools engine) for an unbounded amount
-// of WALL TIME with memory bounded — an iteration/convergence blowup, not an
-// allocation blowup (measured: one IfcFlowController meshed for >= 109 minutes
-// and never returned, holding ~660 MB flat). A production integration cannot
-// hang forever on one element, so a caller needs to install a per-element time
-// budget (or a whole-document cancel) that the long-running geometry loops
-// observe cooperatively and abort.
+// Motivation: a single pathological element can spin inside GetFlatMesh for an
+// unbounded amount of WALL TIME with memory bounded — an iteration/convergence
+// blowup, not an allocation blowup (measured: one IfcFlowController meshed for
+// >= 109 minutes and never returned, holding ~660 MB flat). A live CPU sample
+// of the actually-spinning process proved the wedge is in `mapbox::earcut`'s
+// `earcutLinked`/`cureLocalIntersections` (ear-clipping triangulation of a
+// degenerate face polygon during faceted-BRep triangulation) — NOT this
+// library's own mesh-boolean pipeline (the in-tree fuzzybools engine), which
+// was the first hypothesis and was falsified (comprehensive fuzzybools-only
+// hooks alone still hung the reproducing case for >8 min). A production
+// integration cannot hang forever on one element, so a caller needs to install
+// a per-element time budget (or a whole-document cancel) that the long-running
+// geometry loops — earcut's (load-bearing for the measured class; hooked into
+// the FetchContent'd mapbox/earcut.hpp by the consumer's build, since earcut
+// ships outside this header's own translation units) and, defensively,
+// fuzzybools' (a different, unobserved wedge class) — observe cooperatively
+// and abort.
 //
 // Design (why a thread_local predicate rather than a member threaded through
-// signatures): the wedge loops live in header-only free functions in namespace
-// `fuzzybools` (operations/boolean-utils/*) which hold no IfcGeometryProcessor
-// handle. Passing a predicate down through every fuzzybools signature would be a
+// signatures): the fuzzybools wedge loops live in header-only free functions in
+// namespace `fuzzybools` (operations/boolean-utils/*) which hold no
+// IfcGeometryProcessor handle; earcut's loops are similarly free functions with
+// no such handle. Passing a predicate down through every signature would be a
 // large, non-upstreamable churn. web-ifc meshes one element at a time on the
 // calling thread, so a thread_local predicate is the call-graph-cheap choice:
 // IfcGeometryProcessor installs it for the duration of one GetFlatMesh (via

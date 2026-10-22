@@ -1680,16 +1680,19 @@ namespace webifc::geometry
     {
         spdlog::debug("[GetFlatMesh({})]", expressID);
         // Arm the cooperative cancellation predicate for the whole meshing of
-        // this element (GetMesh recursion + every fuzzybools boolean call it
-        // triggers). Restored on scope exit, including on a MeshingCancelled
-        // throw. No-op when no predicate is installed.
+        // this element (GetMesh recursion + every earcut triangulation call and
+        // fuzzybools boolean call it triggers). Restored on scope exit,
+        // including on a MeshingCancelled throw. No-op when no predicate is
+        // installed.
         CancellationScope _cancelScope(_cancellationCheck);
         // Universal per-element cancellation point: lets a whole-document cancel
         // stop promptly at each element boundary, and (with an already-passed
         // deadline) aborts before meshing. Cost: one predicate read per element.
         // For a live per-element budget this is a no-op at entry (the deadline
-        // was just armed); the wall-time trip happens later at the fuzzybools
-        // loop-head checks while a pathological element spins.
+        // was just armed); for the measured pathological class the wall-time
+        // trip happens later, inside mapbox::earcut's triangulation loops (see
+        // IfcCancellation.h's Motivation) — the fuzzybools loop-head checks
+        // below are defensive coverage of a different, unobserved wedge class.
         CheckCancellation();
         IfcFlatMesh flatMesh;
         flatMesh.expressID = expressID;
