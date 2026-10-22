@@ -1,0 +1,78 @@
+IFC Canvas modification to mapbox/earcut.hpp (https://github.com/mapbox/earcut.hpp).
+Applies to earcut.hpp upstream commit c68c8835ccff2b7532d31d8fa8dfcf398f629498,
+the revision that web-ifc e408b65471a6c61569f8a6634df494420ddd3bfc fetches with
+CMake FetchContent. Apply it with `git apply` inside the fetched earcut source
+directory (<cmake build dir>/_deps/earcut-src).
+License: ISC, the license of earcut.hpp itself (Copyright (c) 2015, Mapbox);
+see LICENSE-earcut-ISC.txt next to this file.
+Changes:
+  - three cooperative-cancellation checks that call web-ifc's
+    webifc::geometry::CheckCancellation() (declared in
+    src/cpp/web-ifc/geometry/IfcCancellation.h of this fork): at the entry of
+    earcutLinked(), and every 1024 iterations of the earcutLinked() ear-slicing
+    loop and of the cureLocalIntersections() walk, so a per-element time
+    budget can abort a triangulation that does not terminate;
+  - the eliminateHoles() hole-sort comparator of upstream earcut commit
+    c0c5ecb6bd1f43ad1f5b005e846221e524d9214d ("Guard against degenerate edges
+    (#134)"), which compares cross products instead of dividing by an edge
+    length that can be zero, so std::sort never receives a NaN comparison.
+
+diff --git a/include/mapbox/earcut.hpp b/include/mapbox/earcut.hpp
+index 97e7677..9141ac3 100644
+--- a/include/mapbox/earcut.hpp
++++ b/include/mapbox/earcut.hpp
+@@ -10,6 +10,8 @@
+ #include <utility>
+ #include <vector>
+ 
++#include <web-ifc/geometry/IfcCancellation.h>
++
+ namespace mapbox {
+ 
+ namespace util {
+@@ -374,6 +376,7 @@ typename Earcut<N>::Node* Earcut<N>::filterPoints(Node* start, Node* end) {
+ template <typename N>
+ void Earcut<N>::earcutLinked(Node* ear) {
+     if (!ear) return;
++    ::webifc::geometry::CheckCancellation();
+ 
+     // interlink polygon nodes in z-order
+     if (hashing) indexCurve(ear);
+@@ -382,9 +385,11 @@ void Earcut<N>::earcutLinked(Node* ear) {
+     Node* prev;
+     Node* next;
+     bool cured = false;
++    unsigned long long _webifcCancelIt = 0;
+ 
+     // iterate through ears, slicing them one by one
+     while (ear->prev != ear->next) {
++        if ((++_webifcCancelIt & 1023) == 0) ::webifc::geometry::CheckCancellation();
+         prev = ear->prev;
+         next = ear->next;
+ 
+@@ -494,7 +499,9 @@ template <typename N>
+ typename Earcut<N>::Node* Earcut<N>::cureLocalIntersections(Node* start) {
+     Node* p = start;
+     bool cured = false;
++    unsigned long long _webifcCancelIt = 0;
+     do {
++        if ((++_webifcCancelIt & 1023) == 0) ::webifc::geometry::CheckCancellation();
+         Node* a = p->prev;
+         Node* b = p->next->next;
+ 
+@@ -564,9 +571,12 @@ typename Earcut<N>::Node* Earcut<N>::eliminateHoles(const Polygon& points, Node*
+     std::sort(holeQueue.begin(), holeQueue.end(), [](const Node* a, const Node* b) {
+         if (a->x != b->x) return a->x < b->x;
+         if (a->y != b->y) return a->y < b->y;
+-        const double aSlope = (a->next->y - a->y) / (a->next->x - a->x);
+-        const double bSlope = (b->next->y - b->y) / (b->next->x - b->x);
+-        return aSlope < bSlope;
++        const double adx = a->next->x - a->x, ady = a->next->y - a->y;
++        const double bdx = b->next->x - b->x, bdy = b->next->y - b->y;
++        const bool aDegenerate = adx == 0 && ady == 0;
++        const bool bDegenerate = bdx == 0 && bdy == 0;
++        if (aDegenerate != bDegenerate) return aDegenerate;
++        return ady * bdx < bdy * adx;
+     });
+ 
+     // block-bbox index for findHoleBridge, grown append-only as holes merge. Seed it with the
