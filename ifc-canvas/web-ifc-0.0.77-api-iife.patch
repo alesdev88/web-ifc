@@ -1,0 +1,47 @@
+IFC Canvas modification to the ThatOpen web-ifc JavaScript API
+(https://github.com/ThatOpen/engine_web-ifc).
+
+Base: the dist file web-ifc-api-iife.js of the npm package web-ifc@0.0.77
+  (https://registry.npmjs.org/web-ifc/-/web-ifc-0.0.77.tgz,
+  dist.integrity sha512-VzQ0W/Iiqbidxn1ECUvz6qJ6p2sXBVNcOsUOBCETzy77psAH6yFLKQm74aXabkx3JH4OvFVHe8k1qS6+Z2zl1w==).
+  Base file sha256:    684155219a10a3d9e5c51be559489eab29a6168e5a2710eedafaf00309659e5c (6084544 bytes)
+  Patched file sha256: 92ed95a3064af65582623e8beb96ec330fa8c8ea40e884960d521a1ead0fd08f (6084709 bytes)
+  The change was made directly in that generated bundle, so this diff against
+  the npm file is the Source Code Form of the modification. web-ifc.wasm from
+  the same package is shipped unmodified
+  (sha256 392b547232aa63df84961d9d3d6e2a7a259cd832b888830cab2ee30778bf28a0).
+
+Change: in IfcAPI.Init(), the options object passed to the Emscripten module
+  factory WebIFCWasm() is built as a local moduleConfig and, when
+  globalThis.__webIfcWasmBinary is set, receives it as wasmBinary (a standard
+  Emscripten Module option). This lets the embedding app hand a preloaded
+  WebAssembly binary to the Emscripten module instead of having the module
+  fetch web-ifc.wasm through locateFile; IFC Canvas loads its viewer page in
+  an embedded web view and supplies the bytes of web-ifc.wasm itself. When the
+  global is not set, behaviour is identical to upstream.
+
+License: MPL-2.0, the license of web-ifc itself (see LICENSE.md in the npm
+  package and at the root of the web-ifc source tree).
+
+Apply: in a directory that holds the npm web-ifc-api-iife.js, run
+  git apply web-ifc-0.0.77-api-iife.patch    (or: patch -p1 < web-ifc-0.0.77-api-iife.patch)
+
+--- a/web-ifc-api-iife.js
++++ b/web-ifc-api-iife.js
+@@ -72668,10 +72668,14 @@
+           }
+           return (currentScriptPath !== void 0 ? currentScriptPath : prefix) + this.wasmPath + path;
+         };
+-        this.wasmModule = await WebIFCWasm({
++        const moduleConfig = {
+           noInitialRun: true,
+           locateFile: customLocateFileHandler || locateFileHandler
+-        });
++        };
++        if (globalThis.__webIfcWasmBinary) {
++          moduleConfig.wasmBinary = globalThis.__webIfcWasmBinary;
++        }
++        this.wasmModule = await WebIFCWasm(moduleConfig);
+         this.SetLogLevel(4 /* LOG_LEVEL_ERROR */);
+       } else {
+         Log.error(

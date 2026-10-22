@@ -1,0 +1,53 @@
+IFC Canvas modification to mapbox/earcut.hpp (https://github.com/mapbox/earcut.hpp).
+Applies to earcut.hpp upstream commit 4811a2b69b91f6127a75e780de6e2113609ddabb,
+the revision that web-ifc 61384fe61da64feebdd49eb3d319971e0b4bff81 fetches
+with CMake FetchContent. Apply it with `git apply` inside the fetched earcut
+source directory (<cmake build dir>/_deps/earcut-src).
+License: ISC, the license of earcut.hpp itself (Copyright (c) 2015, Mapbox);
+see LICENSE-earcut-ISC.txt next to this file.
+Changes:
+  - three cooperative-cancellation checks that call web-ifc's
+    webifc::geometry::CheckCancellation() (declared in
+    src/cpp/web-ifc/geometry/IfcCancellation.h of this fork): at the entry of
+    earcutLinked(), and every 1024 iterations of the earcutLinked() ear-slicing
+    loop and of the cureLocalIntersections() walk, so a per-element time
+    budget can abort a triangulation that does not terminate.
+
+diff --git a/include/mapbox/earcut.hpp b/include/mapbox/earcut.hpp
+--- a/include/mapbox/earcut.hpp
++++ b/include/mapbox/earcut.hpp
+@@ -9,6 +9,8 @@
+ #include <utility>
+ #include <vector>
+ 
++#include <web-ifc/geometry/IfcCancellation.h>
++
+ namespace mapbox {
+ 
+ namespace util {
+@@ -255,6 +257,7 @@
+ template <typename N>
+ void Earcut<N>::earcutLinked(Node* ear, int pass) {
+     if (!ear) return;
++    ::webifc::geometry::CheckCancellation();
+ 
+     // interlink polygon nodes in z-order
+     if (!pass && hashing) indexCurve(ear);
+@@ -268,6 +271,7 @@
+     // iterate through ears, slicing them one by one
+     while (ear->prev != ear->next) {
+         iterations++;
++        if ((iterations & 1023) == 0) ::webifc::geometry::CheckCancellation();
+         prev = ear->prev;
+         next = ear->next;
+ 
+@@ -373,7 +377,9 @@
+ typename Earcut<N>::Node*
+ Earcut<N>::cureLocalIntersections(Node* start) {
+     Node* p = start;
++    unsigned long long _webifcCancelIt = 0;
+     do {
++        if ((++_webifcCancelIt & 1023) == 0) ::webifc::geometry::CheckCancellation();
+         Node* a = p->prev;
+         Node* b = p->next->next;
+ 
