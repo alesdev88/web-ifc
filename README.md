@@ -1,3 +1,6 @@
+> **IFC Canvas fork of web-ifc.** Tag `ifc-canvas-1.1.24` is upstream ThatOpen web-ifc 0.77 plus the IFC Canvas modifications that shipped in IFC Canvas 0.96.4 to 1.1.24, as commits on top of it.
+> See [ifc-canvas/README.md](ifc-canvas/README.md) for the releases it covers, the modifications, licensing and build notes, and branch `ifc-canvas` for the complete release-to-tag table. The upstream README follows unchanged.
+
 <p align="center">
   <a href="https://thatopen.com/">TOC</a>
   |
