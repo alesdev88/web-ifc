@@ -27,6 +27,7 @@ each kernel, with the web-ifc source it contains:
 | 0.96.4 to 1.1.24 | 268 to 403 | upstream `f26c4beef0a668ebdb180d2b95a94097a1e21cef` (tag `0.77`), modified | tag `ifc-canvas-1.1.24` | modified: [`web-ifc-0.0.77-api-iife.patch`](web-ifc-0.0.77-api-iife.patch); `web-ifc.wasm` unmodified |
 | 1.2.0 to 1.3.0 | 404 to 443 (406: internal test build, not distributed, see the notes below) | upstream `61384fe61da64feebdd49eb3d319971e0b4bff81`, modified | tag `ifc-canvas-1.3.0` | modified: [`web-ifc-0.0.77-api-iife.patch`](web-ifc-0.0.77-api-iife.patch); `web-ifc.wasm` unmodified |
 | 1.4.0 | 444; also 445 and 446 (internal test builds, not distributed) | upstream `e408b65471a6c61569f8a6634df494420ddd3bfc`, modified | tag `ifc-canvas-1.4.0` | modified: [`web-ifc-0.0.77-api-iife.patch`](web-ifc-0.0.77-api-iife.patch); `web-ifc.wasm` unmodified |
+| the next release after 1.4.0 (version assigned at release) | to be filled at release | upstream `e408b65471a6c61569f8a6634df494420ddd3bfc`, modified: the 1.4.0 modifications plus three more (see [The next IFC Canvas release](#the-next-ifc-canvas-release)) | tag `ifc-canvas-<version>`, created at release | modified: [`web-ifc-0.0.77-api-iife.patch`](web-ifc-0.0.77-api-iife.patch); `web-ifc.wasm` unmodified |
 
 Every release, from 0.1.0 (build 1) to 1.4.0, bundles the JavaScript API
 `web-ifc-api-iife.js` and the WebAssembly module `web-ifc.wasm` of the npm
@@ -126,6 +127,8 @@ a kernel built from that tag's source, per tag:
   1.2.10 (builds 440-442), 1.3.0 (build 443).
 - `ifc-canvas-1.4.0`: 1.4.0 (build 444; and 445 and 446, internal test builds,
   not distributed).
+- `ifc-canvas-<version>` (the next release after 1.4.0): to be filled at
+  release.
 
 Builds 283, 284 and 319 are the numbers that the app's version notes reserve
 for 0.99.8, 0.99.9 and 0.101.1, but no commit ever set them: the changes of
@@ -133,7 +136,8 @@ for 0.99.8, 0.99.9 and 0.101.1, but no commit ever set them: the changes of
 0.101.1 with 0.101.2 (build 320). The static library is the same at the
 commits on both sides of these numbers (builds 282 and 285, 318 and 320), so
 any binary that carried one of them links the same static library as the
-releases of tag `ifc-canvas-1.1.24`. Together the three lists account for
+releases of tag `ifc-canvas-1.1.24`. Together the lists of
+`ifc-canvas-1.1.24`, `ifc-canvas-1.3.0` and `ifc-canvas-1.4.0` account for
 every build number from 268 to 446. The `ifc-canvas/README.md` of each tag
 describes that tag's modifications and how it was derived from the released
 patch files.
@@ -143,6 +147,7 @@ patch files.
 | `ifc-canvas-1.1.24` | `f26c4beef0a668ebdb180d2b95a94097a1e21cef` (tag `0.77`) | `f4caef78825a0e033bfb4b16ebb7e686c051e5a4` (0.96.4) to `180fff158b9ad3440cc2f62892861f986c7cdfbe` (1.1.24) |
 | `ifc-canvas-1.3.0` | `61384fe61da64feebdd49eb3d319971e0b4bff81` | `731fc98a361e6973b585091c6bca68f42b4c1101` (1.2.0) to `ea288bb4c7f115652e8ae347b5c9292a948111e9` (1.3.0) |
 | `ifc-canvas-1.4.0` | `e408b65471a6c61569f8a6634df494420ddd3bfc` | `97d429134a5821e5aceb3020693c6b3bf7e8147c` (1.4.0) |
+| `ifc-canvas-<version>` (the next release) | `e408b65471a6c61569f8a6634df494420ddd3bfc` | to be filled at release |
 
 ### Provenance of `ifc-canvas-1.4.0`
 
@@ -234,6 +239,32 @@ other FetchContent dependencies, including CDT (artem-ogre/CDT, MPL-2.0), are
 used unmodified at the commits pinned in `src/cpp/CMakeLists.txt`, so the
 Source Code Form of each of them is its upstream repository at that commit.
 
+## The next IFC Canvas release
+
+The next IFC Canvas release after 1.4.0 (version assigned at release; tag
+`ifc-canvas-<version>`) compiles upstream
+`e408b65471a6c61569f8a6634df494420ddd3bfc` with the IFC Canvas patches 01 to
+07 and the same earcut patch as 1.4.0. Patches 01 to 04 are commits 1 to 4
+above, unchanged. Patches 05 to 07 are the three commits below, each the
+diff of one IFC Canvas patch file applied unchanged with `git apply` on top
+of the patches before it, in the order in which the app's build script
+applies them (01 to 07). Each SHA-256 identifies the IFC Canvas patch file,
+whose explanatory preamble is not published; `git apply` reads only the
+diff. The earcut patch file and the earcut pin
+`c68c8835ccff2b7532d31d8fa8dfcf398f629498` are unchanged since 1.4.0, so
+[`earcut-c68c8835.patch`](earcut-c68c8835.patch) (item 5) still applies as
+published. Labels such as `D16` and `bug-287` in the source comments of these
+commits are IFC Canvas's own tracking labels and have no public counterpart.
+
+| IFC Canvas patch file | SHA-256 of the IFC Canvas patch file | Commit | What it changes |
+| --- | --- | --- | --- |
+| `web-ifc-e408b654-05-boolean-depth-bound.patch` | `04725903aadd806fcea0bbb8859ae721fb10547396afa70647dc144a515d18eb` | `ecb37d9a1ccddf129a4f050c818e84a9ea699bb4` | `GetMeshUncached` returns an empty mesh for a boolean result nested deeper than 1024 booleans, instead of recursing until the stack of the meshing thread overflows. |
+| `web-ifc-e408b654-06-tokenizer-ifc4x3-tolerance.patch` | `62d78c674500ed20558358391a805669c6bb8107477995071689db83cea0864e` | `64bf2c56eee15620321cc5174263ecb5dd8fdbae` | Instead of failing the whole file, the tokenizer reads a quoted value that is not a valid STEP binary as one empty argument (`$`), skips a stray quote and counts each case (`IfcLoader::GetToleratedTokenCount()`), changing files under `src/cpp/web-ifc/parsing/` only. |
+| `web-ifc-e408b654-07-empty-path-counters.patch` | `16fcd9801d6cfd64382f06f4a394e8f3d5fa2c62eb819fbf75963646d6caaf5d` | `8c1d4cf626cb3e6f35f7f777beb73ebac0f5d2de` | Thread-local counters in a new header, `IfcCanvasEmptyPathCounters.h`, record each time one of five upstream paths leaves a whole representation item empty without an error, without changing any geometry or control flow. |
+
+The builds that carry this kernel, and the app release commit, are to be
+filled at release.
+
 ## Reproducing the source and the build
 
 ```sh
@@ -248,6 +279,8 @@ The patches are the commits: `git format-patch
 e408b65471a6c61569f8a6634df494420ddd3bfc..ifc-canvas-1.4.0 -- src` exports
 them as patch files. For an earlier release, check out its tag from the table
 above instead; its own `ifc-canvas/README.md` gives the matching commands.
+For the next release, use its tag `ifc-canvas-<version>` in place of
+`ifc-canvas-1.4.0`; the upstream base is the same.
 
 IFC Canvas compiles web-ifc as an iOS static library with CMake, once per SDK
 (`iphoneos` and `iphonesimulator`, arm64, Release), building only the
@@ -274,9 +307,47 @@ tar -xzf web-ifc-0.0.77.tgz
 cd package && patch -p1 < /path/to/ifc-canvas/web-ifc-0.0.77-api-iife.patch
 ```
 
+### Reproducing the build of the next release
+
+The kernel of the next release is compiled so that no local path of the
+source or of the build tree ends up in it: every translation unit gets
+`-ffile-prefix-map=<build tree>=/webifc-build` and
+`-ffile-prefix-map=<web-ifc source>=/webifc-src`, and the archive is written
+by `libtool` with `ZERO_AR_DATE=1`. It is otherwise built as above: Release,
+iOS deployment target 26.0, arm64, with Xcode 27.1 (27A9275) and the iOS SDK
+27.1 (CMake 4.4.3). A rebuild from this source with the same toolchain, the
+same flags and umask 022 (`libtool` records each member's file mode)
+therefore reproduces the static library that IFC Canvas links for this
+release byte for byte: `libWebIFC.a` SHA-256
+`2faf149eb26f43a10c8daa6b6726808327edc23364f1c35ca7c68c565cfab3a5`
+(ios-arm64) and
+`4ce46f5336bc821db573d07bccaeb04c96664b78a67b6889bce253cfb17d93b7`
+(ios-arm64-simulator). The device slice, from the root of this checkout (for
+the simulator slice use `iphonesimulator` and a fresh build tree):
+
+```sh
+umask 022
+SRC="$PWD"
+B="$(dirname "$PWD")/webifc-build-ios"   # outside the checkout: the two maps must not nest
+cmake -S src/cpp -B "$B" \
+  -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_ARCHITECTURES=arm64 \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0 -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_OSX_SYSROOT=iphoneos -DBUILD_SHARED_LIBS=OFF \
+  -DCMAKE_INSTALL_PREFIX="$B/install" \
+  -DCMAKE_CXX_FLAGS="-ffile-prefix-map=$B=/webifc-build -ffile-prefix-map=$SRC=/webifc-src"
+git -C "$B/_deps/earcut-src" apply "$SRC/ifc-canvas/earcut-c68c8835.patch"
+cmake --build "$B" --config Release --target web-ifc-library
+cmake --install "$B" --config Release
+ZERO_AR_DATE=1 libtool -static -o libWebIFC.a "$B/install/lib/libweb-ifc-library.a"
+```
+
+Use paths without spaces here (the IFC Canvas build script double-quotes
+each map inside `CMAKE_CXX_FLAGS`), and if a path goes through a symbolic
+link, also map its `pwd -P` spelling.
+
 ## Licenses
 
-- web-ifc and the IFC Canvas modifications to it (the four commits listed
+- web-ifc and the IFC Canvas modifications to it (the commits listed
   above, which change files under `src/`, and
   `web-ifc-0.0.77-api-iife.patch`): Mozilla Public License 2.0 (see
   [LICENSE.md](../LICENSE.md)); the upstream license is unchanged.
