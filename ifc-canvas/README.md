@@ -27,9 +27,9 @@ each kernel, with the web-ifc source it contains:
 | 0.96.4 to 1.1.24 | 268 to 403 | upstream `f26c4beef0a668ebdb180d2b95a94097a1e21cef` (tag `0.77`), modified | tag `ifc-canvas-1.1.24` | modified: [`web-ifc-0.0.77-api-iife.patch`](web-ifc-0.0.77-api-iife.patch); `web-ifc.wasm` unmodified |
 | 1.2.0 to 1.3.0 | 404 to 443 (406: internal test build, not distributed, see the notes below) | upstream `61384fe61da64feebdd49eb3d319971e0b4bff81`, modified | tag `ifc-canvas-1.3.0` | modified: [`web-ifc-0.0.77-api-iife.patch`](web-ifc-0.0.77-api-iife.patch); `web-ifc.wasm` unmodified |
 | 1.4.0 | 444; also 445 and 446 (internal test builds, not distributed) | upstream `e408b65471a6c61569f8a6634df494420ddd3bfc`, modified | tag `ifc-canvas-1.4.0` | modified: [`web-ifc-0.0.77-api-iife.patch`](web-ifc-0.0.77-api-iife.patch); `web-ifc.wasm` unmodified |
-| the next release after 1.4.0 (version assigned at release) | to be filled at release | upstream `e408b65471a6c61569f8a6634df494420ddd3bfc`, modified: the 1.4.0 modifications plus three more (see [The next IFC Canvas release](#the-next-ifc-canvas-release)) | tag `ifc-canvas-<version>`, created at release | modified: [`web-ifc-0.0.77-api-iife.patch`](web-ifc-0.0.77-api-iife.patch); `web-ifc.wasm` unmodified |
+| 1.5.0 | 448 | upstream `e408b65471a6c61569f8a6634df494420ddd3bfc`, modified: the 1.4.0 modifications plus three more (see [Modifications in `ifc-canvas-1.5.0`](#modifications-in-ifc-canvas-150)) | tag `ifc-canvas-1.5.0` | modified: [`web-ifc-0.0.77-api-iife.patch`](web-ifc-0.0.77-api-iife.patch); `web-ifc.wasm` unmodified |
 
-Every release, from 0.1.0 (build 1) to 1.4.0, bundles the JavaScript API
+Every release, from 0.1.0 (build 1) to 1.5.0, bundles the JavaScript API
 `web-ifc-api-iife.js` and the WebAssembly module `web-ifc.wasm` of the npm
 package `web-ifc@0.0.77`. The JavaScript API carries one IFC Canvas change
 (item 6 below). The patched file has shipped since commit
@@ -127,8 +127,7 @@ a kernel built from that tag's source, per tag:
   1.2.10 (builds 440-442), 1.3.0 (build 443).
 - `ifc-canvas-1.4.0`: 1.4.0 (build 444; and 445 and 446, internal test builds,
   not distributed).
-- `ifc-canvas-<version>` (the next release after 1.4.0): to be filled at
-  release.
+- `ifc-canvas-1.5.0`: 1.5.0 (build 448).
 
 Builds 283, 284 and 319 are the numbers that the app's version notes reserve
 for 0.99.8, 0.99.9 and 0.101.1, but no commit ever set them: the changes of
@@ -147,7 +146,7 @@ patch files.
 | `ifc-canvas-1.1.24` | `f26c4beef0a668ebdb180d2b95a94097a1e21cef` (tag `0.77`) | `f4caef78825a0e033bfb4b16ebb7e686c051e5a4` (0.96.4) to `180fff158b9ad3440cc2f62892861f986c7cdfbe` (1.1.24) |
 | `ifc-canvas-1.3.0` | `61384fe61da64feebdd49eb3d319971e0b4bff81` | `731fc98a361e6973b585091c6bca68f42b4c1101` (1.2.0) to `ea288bb4c7f115652e8ae347b5c9292a948111e9` (1.3.0) |
 | `ifc-canvas-1.4.0` | `e408b65471a6c61569f8a6634df494420ddd3bfc` | `97d429134a5821e5aceb3020693c6b3bf7e8147c` (1.4.0) |
-| `ifc-canvas-<version>` (the next release) | `e408b65471a6c61569f8a6634df494420ddd3bfc` | to be filled at release |
+| `ifc-canvas-1.5.0` | `e408b65471a6c61569f8a6634df494420ddd3bfc` | `bd67e84b6580330537f756172c7baa966c8cf58e` (1.5.0) |
 
 ### Provenance of `ifc-canvas-1.4.0`
 
@@ -212,7 +211,7 @@ are IFC Canvas's own tracking labels and have no public counterpart.
 
 6. [`web-ifc-0.0.77-api-iife.patch`](web-ifc-0.0.77-api-iife.patch), a change to the web-ifc JavaScript API
 
-   Besides the static library, every IFC Canvas release from 0.1.0 to 1.4.0
+   Besides the static library, every IFC Canvas release from 0.1.0 to 1.5.0
    bundles the JavaScript API and the WebAssembly module of the npm package
    `web-ifc@0.0.77` for its embedded web viewer: `web-ifc-api-iife.js` and
    `web-ifc.wasm`. `web-ifc-api-iife.js` carries one IFC Canvas change, made
@@ -239,10 +238,9 @@ other FetchContent dependencies, including CDT (artem-ogre/CDT, MPL-2.0), are
 used unmodified at the commits pinned in `src/cpp/CMakeLists.txt`, so the
 Source Code Form of each of them is its upstream repository at that commit.
 
-## The next IFC Canvas release
+## Modifications in `ifc-canvas-1.5.0`
 
-The next IFC Canvas release after 1.4.0 (version assigned at release; tag
-`ifc-canvas-<version>`) compiles upstream
+IFC Canvas 1.5.0 (build 448; tag `ifc-canvas-1.5.0`) compiles upstream
 `e408b65471a6c61569f8a6634df494420ddd3bfc` with the IFC Canvas patches 01 to
 07 and the same earcut patch as 1.4.0. Patches 01 to 04 are commits 1 to 4
 above, unchanged. Patches 05 to 07 are the three commits below, each the
@@ -262,8 +260,11 @@ commits are IFC Canvas's own tracking labels and have no public counterpart.
 | `web-ifc-e408b654-06-tokenizer-ifc4x3-tolerance.patch` | `62d78c674500ed20558358391a805669c6bb8107477995071689db83cea0864e` | `64bf2c56eee15620321cc5174263ecb5dd8fdbae` | Instead of failing the whole file, the tokenizer reads a quoted value that is not a valid STEP binary as one empty argument (`$`), skips a stray quote and counts each case (`IfcLoader::GetToleratedTokenCount()`), changing files under `src/cpp/web-ifc/parsing/` only. |
 | `web-ifc-e408b654-07-empty-path-counters.patch` | `16fcd9801d6cfd64382f06f4a394e8f3d5fa2c62eb819fbf75963646d6caaf5d` | `8c1d4cf626cb3e6f35f7f777beb73ebac0f5d2de` | Thread-local counters in a new header, `IfcCanvasEmptyPathCounters.h`, record each time one of five upstream paths leaves a whole representation item empty without an error, without changing any geometry or control flow. |
 
-The builds that carry this kernel, and the app release commit, are to be
-filled at release.
+IFC Canvas 1.5.0 (build 448) carries this kernel. Its release commit is
+`bd67e84b6580330537f756172c7baa966c8cf58e` of the private app repository, a
+provenance anchor only, like the other app commit ids in this file; at that
+commit the app's build script applies the patch files 01 to 07 and the earcut
+patch file, each with the SHA-256 recorded in this file.
 
 ## Reproducing the source and the build
 
@@ -279,7 +280,7 @@ The patches are the commits: `git format-patch
 e408b65471a6c61569f8a6634df494420ddd3bfc..ifc-canvas-1.4.0 -- src` exports
 them as patch files. For an earlier release, check out its tag from the table
 above instead; its own `ifc-canvas/README.md` gives the matching commands.
-For the next release, use its tag `ifc-canvas-<version>` in place of
+For 1.5.0, use its tag `ifc-canvas-1.5.0` in place of
 `ifc-canvas-1.4.0`; the upstream base is the same.
 
 IFC Canvas compiles web-ifc as an iOS static library with CMake, once per SDK
@@ -307,9 +308,9 @@ tar -xzf web-ifc-0.0.77.tgz
 cd package && patch -p1 < /path/to/ifc-canvas/web-ifc-0.0.77-api-iife.patch
 ```
 
-### Reproducing the build of the next release
+### Reproducing the build of `ifc-canvas-1.5.0`
 
-The kernel of the next release is compiled so that no local path of the
+The kernel of IFC Canvas 1.5.0 is compiled so that no local path of the
 source or of the build tree ends up in it: every translation unit gets
 `-ffile-prefix-map=<build tree>=/webifc-build` and
 `-ffile-prefix-map=<web-ifc source>=/webifc-src`, and the archive is written

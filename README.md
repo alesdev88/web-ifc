@@ -1,4 +1,4 @@
-> **IFC Canvas fork of web-ifc.** Branch `ifc-canvas` carries the IFC Canvas modifications as commits on top of upstream ThatOpen web-ifc. The web-ifc source of every IFC Canvas release with a modified web-ifc kernel is a tag: `ifc-canvas-1.1.24` (releases 0.96.4 to 1.1.24), `ifc-canvas-1.3.0` (1.2.0 to 1.3.0) and `ifc-canvas-1.4.0` (1.4.0).
+> **IFC Canvas fork of web-ifc.** Branch `ifc-canvas` carries the IFC Canvas modifications as commits on top of upstream ThatOpen web-ifc. The web-ifc source of every IFC Canvas release with a modified web-ifc kernel is a tag: `ifc-canvas-1.1.24` (releases 0.96.4 to 1.1.24), `ifc-canvas-1.3.0` (1.2.0 to 1.3.0), `ifc-canvas-1.4.0` (1.4.0) and `ifc-canvas-1.5.0` (1.5.0).
 > See [ifc-canvas/README.md](ifc-canvas/README.md) for the complete release-to-tag table, the modifications, licensing and build notes. The upstream README follows unchanged.
 
 <p align="center">
