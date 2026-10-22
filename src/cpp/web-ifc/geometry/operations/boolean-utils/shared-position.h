@@ -13,6 +13,11 @@
 #include <CDT.h>
 #pragma warning(pop)
 
+// Cooperative meshing-cancellation hook (per-element time budget / document
+// cancel). Checked at this engine's super-linear outer loop heads so a
+// pathological element aborts instead of spinning unbounded in wall time.
+#include "../../IfcCancellation.h"
+
 #include "geometry.h"
 #include "aabb.h"
 #include "bvh.h"
@@ -961,6 +966,9 @@ namespace fuzzybools
 
             for (size_t i = 0; i < geom.numFaces; i++)
             {
+                // O(facesA * facesB) contact test — cancellation check per outer face.
+                webifc::geometry::CheckCancellation();
+
                 Face f = geom.GetFace(i);
 
                 auto faceBox = geom.GetFaceBox(i);
@@ -1310,6 +1318,8 @@ namespace fuzzybools
 
             for (auto &line : p.lines)
             {
+                // Per-plane triangulation prep — cancellation check per line.
+                webifc::geometry::CheckCancellation();
                 // these segments might intersect internally, lets resolve that so we get a valid chain
                 auto segments = GetNonIntersectingSegments(line);
 
@@ -1398,6 +1408,10 @@ namespace fuzzybools
 
             for (auto &tri : triangles)
             {
+                // O(triangles) with O(edges) isInsideBoundary + ray casts each —
+                // a single pathological plane's triangulation can dominate.
+                // Cancellation check per triangle.
+                webifc::geometry::CheckCancellation();
 #ifdef CSG_DEBUG_OUTPUT
                 // edgesTriangles.insert(std::make_pair(tri.vertices[0], tri.vertices[1]));
                 // edgesTriangles.insert(std::make_pair(tri.vertices[1], tri.vertices[2]));
@@ -1657,6 +1671,8 @@ namespace fuzzybools
         // line B is expected to have the segments already filled, line A is not
         for (auto &line : p.lines)
         {
+            // O(lines * segs) per plane pair — cancellation check per line.
+            webifc::geometry::CheckCancellation();
             // skip collinear
             if (lineA.IsCollinear(line))
                 continue;
@@ -1724,6 +1740,8 @@ namespace fuzzybools
     {
         for (auto segA : lineA.GetSegments())
         {
+            // O(segsA * segsB) per line pair — cancellation check per outer segment.
+            webifc::geometry::CheckCancellation();
             for (auto segB : lineB.GetSegments())
             {
                 // check isect A vs B
@@ -1794,6 +1812,9 @@ namespace fuzzybools
         {
             for (size_t lineBIndex = lineAIndex + 1; lineBIndex < p.lines.size(); lineBIndex++)
             {
+                // O(lines^2) per plane, called per-plane from Normalize —
+                // cancellation check per line pair.
+                webifc::geometry::CheckCancellation();
                 AddLineLineIntersections(p, sp, p.lines[lineAIndex], p.lines[lineBIndex]);
             }
         }
@@ -1856,6 +1877,8 @@ namespace fuzzybools
         // put all points on lines/planes
         for (auto &p : sp.points)
         {
+            // O(points * planes) — cancellation check per outer point.
+            webifc::geometry::CheckCancellation();
             for (auto &plane : sp.planes)
             {
                 if (plane.IsPointOnPlane(p.location3D))
@@ -1876,6 +1899,10 @@ namespace fuzzybools
         {
             for (size_t planeBIndex = 0; planeBIndex < sp.planes.size(); planeBIndex++)
             {
+                // O(planes^2) plane-plane intersection, each doing O(points+lines)
+                // work — the dominant wedge loop. Cancellation check per inner pair.
+                webifc::geometry::CheckCancellation();
+
                 auto &planeA = sp.planes[planeAIndex];
                 auto &planeB = sp.planes[planeBIndex];
 
@@ -1944,6 +1971,8 @@ namespace fuzzybools
 
         for (auto &p : sp.points)
         {
+            // O(points * planes) — cancellation check per outer point.
+            webifc::geometry::CheckCancellation();
             for (auto &plane : sp.planes)
             {
                 if (plane.IsPointOnPlane(p.location3D))
@@ -1960,6 +1989,9 @@ namespace fuzzybools
         Geometry geom;
         for (auto &plane : sp.planes)
         {
+            // Per-plane triangulation (each O(triangles^2) inside) — cancellation
+            // check per plane.
+            webifc::geometry::CheckCancellation();
 
 #ifdef CSG_DEBUG_OUTPUT
             // std::vector<std::vector<glm::dvec2>> edges;
