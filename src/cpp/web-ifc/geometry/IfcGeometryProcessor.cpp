@@ -24,6 +24,7 @@
 #include "operations/curve-utils.h"
 #include "operations/mesh_utils.h"
 #include "operations/boolean-utils/fuzzy-bools.h"
+#include "IfcCanvasEmptyPathCounters.h"
 
 namespace webifc::geometry
 {
@@ -303,6 +304,11 @@ namespace webifc::geometry
     {
         spdlog::debug("[GetMesh({})]", expressID);
         auto &relVoids = _cache.GetRelVoids();
+        // IFC Canvas (patch 07, empty-path counters): log this IfcMappedItem visit
+        // with the empty paths that fired while it was meshed (a no-op for every
+        // other line type; IfcCanvasEmptyPathCounters.h). A visit that fired
+        // nothing tells the consumer that patch 02's map memo served a repeat.
+        IfcCanvasEmptyPathMappedItemScope emptyPathVisit(lineType == schema::IFCMAPPEDITEM, expressID);
 
         IfcComposedMesh mesh;
         mesh.expressID = expressID;
@@ -1188,6 +1194,7 @@ namespace webifc::geometry
                         static_cast<size_t>(i1) >= points.size() || static_cast<size_t>(i2) >= points.size() || static_cast<size_t>(i3) >= points.size())
                     {
                         spdlog::error("[GetMesh()] Invalid triangulated face index in {}", expressID);
+                        ++IfcCanvasEmptyPathCountersTLS().faceIndex; // IFC Canvas (patch 07): no geometry stored
                         return mesh;
                     }
                     geom.AddFace(points[i1], points[i2], points[i3]);

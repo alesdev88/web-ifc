@@ -7,6 +7,7 @@
 #include "IfcGeometryLoader.h"
 #include "operations/curve-utils.h"
 #include "operations/geometryutils.h"
+#include "IfcCanvasEmptyPathCounters.h"
 #ifdef DEBUG_DUMP_SVG
 #include "../../test/io_helpers.h"
 #include "../../test/dumpToThree.h"
@@ -424,7 +425,11 @@ namespace webifc::geometry
         transform.push_back(linearPlacement);
       }
 
-      if (faces.size() != transform.size()) return sections;
+      if (faces.size() != transform.size())
+      {
+        ++IfcCanvasEmptyPathCountersTLS().sectioned; // IFC Canvas (patch 07): whole item empty
+        return sections;
+      }
       uint32_t id = 0;
       for (auto &face : faces)
       {
@@ -468,7 +473,11 @@ namespace webifc::geometry
         transform.emplace_back(linearPlacement[1], linearPlacement[2], linearPlacement[0], linearPlacement[3]);
       }
 
-      if (faces.size() != transform.size()) return sections;
+      if (faces.size() != transform.size())
+      {
+        ++IfcCanvasEmptyPathCountersTLS().sectioned; // IFC Canvas (patch 07): whole item empty
+        return sections;
+      }
       uint32_t id = 0;
       std::vector<IfcProfile> profiles;
       std::vector<IfcCurve> curves;

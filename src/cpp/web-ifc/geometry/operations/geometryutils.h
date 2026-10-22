@@ -20,6 +20,7 @@
 #include "../representation/IfcGeometry.h"
 #include <mapbox/earcut.hpp>
 #include "bim-geometry/utils.h"
+#include "../IfcCanvasEmptyPathCounters.h"
 
 namespace mapbox::util {
 	template <>
@@ -610,6 +611,7 @@ namespace webifc::geometry
 			if (!start.isComposite || !end.isComposite || start.profiles.size() != end.profiles.size())
 			{
 				spdlog::error("[ExtrudeTapered()] Incompatible composite profiles");
+				++IfcCanvasEmptyPathCountersTLS().tapered; // IFC Canvas (patch 07): whole item empty
 				return geom;
 			}
 			for (size_t i = 0; i < start.profiles.size(); ++i)
@@ -619,6 +621,7 @@ namespace webifc::geometry
 		if (start.holes.size() != end.holes.size() || glm::length(dir) == 0 || dir.z == 0)
 		{
 			spdlog::error("[ExtrudeTapered()] Incompatible boundaries or extrusion direction");
+			++IfcCanvasEmptyPathCountersTLS().tapered; // IFC Canvas (patch 07): whole item empty
 			return geom;
 		}
 		const glm::dvec3 offset = glm::normalize(dir) * depth;
@@ -632,6 +635,7 @@ namespace webifc::geometry
 			if (a.size() < 3 || a.size() != b.size())
 			{
 				spdlog::error("[ExtrudeTapered()] Profiles need matching sampled boundary vertices");
+				++IfcCanvasEmptyPathCountersTLS().tapered; // IFC Canvas (patch 07): whole item empty
 				return IfcGeometry();
 			}
 			// Reverse both boundaries together to preserve vertex correspondence.
@@ -732,6 +736,7 @@ namespace webifc::geometry
             if (glm::length(xAxis) < EPS_SMALL)
             {
                 spdlog::warn("[SweepFixedReference()] FixedReference is parallel to the directrix tangent");
+                ++IfcCanvasEmptyPathCountersTLS().fixedReferenceParallel; // IFC Canvas (patch 07): whole item empty
                 return IfcGeometry();
             }
             xAxis = glm::normalize(xAxis);

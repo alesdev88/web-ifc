@@ -6,6 +6,7 @@
 #include "epsilons.h"
 #include "curve.h"
 #include <mapbox/earcut.hpp>
+#include "../../IfcCanvasEmptyPathCounters.h"
 
 #pragma once
 
@@ -1166,7 +1167,11 @@ namespace bimGeometry
                 const glm::dvec3 n1 = glm::normalize(dpts[i] - dpts[i - 1]);
                 const glm::dvec3 n2 = glm::normalize(dpts[i + 1] - dpts[i]);
                 // A reversal has no finite miter plane. Collinear forward segments do.
-                if (glm::dot(n1, n2) < -0.999999) return geom;
+                if (glm::dot(n1, n2) < -0.999999)
+                {
+                    ++webifc::geometry::IfcCanvasEmptyPathCountersTLS().sweptDiskReversal; // IFC Canvas (patch 07): whole bar empty
+                    return geom;
+                }
                 planeNormal = glm::normalize(n1 + n2);
                 directrixSegmentNormal = n1;
                 directrix2 = n1;
@@ -1376,28 +1381,31 @@ namespace bimGeometry
     inline Geometry SectionedSurfaceRings(std::vector<std::vector<std::vector<glm::dvec3>>> sections, bool buildCaps, double eps = 0.0)
     {
         Geometry geom;
-        if (sections.size() < 2 || sections.front().empty()) return geom;
+        // IFC Canvas (patch 07): each early return below empties the whole item;
+        // it is counted, the control flow is unchanged.
+        auto& emptyPathCounters = webifc::geometry::IfcCanvasEmptyPathCountersTLS();
+        if (sections.size() < 2 || sections.front().empty()) { ++emptyPathCounters.sectioned; return geom; }
         const double tolerance = std::max(eps, 1e-12);
         const size_t ringCount = sections.front().size();
         std::vector<bool> closed(ringCount);
         for (size_t r = 0; r < ringCount; ++r)
         {
             const auto& ring = sections.front()[r];
-            if (ring.size() < 2) return geom;
+            if (ring.size() < 2) { ++emptyPathCounters.sectioned; return geom; }
             closed[r] = buildCaps || glm::distance(ring.front(), ring.back()) < tolerance;
         }
         for (auto& section : sections)
         {
-            if (section.size() != ringCount) return geom;
+            if (section.size() != ringCount) { ++emptyPathCounters.sectioned; return geom; }
             for (auto& ring : section)
             {
                 if (ring.size() > 2 && glm::distance(ring.front(), ring.back()) < tolerance) ring.pop_back();
-                if (ring.size() < (buildCaps ? 3 : 2)) return geom;
+                if (ring.size() < (buildCaps ? 3 : 2)) { ++emptyPathCounters.sectioned; return geom; }
             }
         }
         for (const auto& section : sections)
             for (size_t r = 0; r < ringCount; ++r)
-                if (section[r].size() != sections.front()[r].size()) return geom;
+                if (section[r].size() != sections.front()[r].size()) { ++emptyPathCounters.sectioned; return geom; }
         auto normal = [](const std::vector<glm::dvec3>& ring) {
             glm::dvec3 n(0);
             for (size_t j = 0; j < ring.size(); ++j)
