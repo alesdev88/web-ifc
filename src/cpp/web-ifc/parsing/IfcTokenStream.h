@@ -60,6 +60,8 @@ namespace webifc::parsing
         size_t GetTotalSize();
         IfcTokenStream * Clone();
         size_t GetNoLines();
+        // IFC Canvas patch 06 (D16): tolerated STEP quote defects, summed over the chunks.
+        size_t GetToleratedTokenCount() const;
 
 
         inline void Forward(const size_t size)
@@ -131,6 +133,14 @@ namespace webifc::parsing
             inline size_t GetRef() { return _startRef + _pointer; }
             inline char Get() { return _pointer < _currentSize ? _buffer[_pointer] : 0; }
             inline size_t GetNoLines() { return noLines; }
+            // IFC Canvas patch 06 (D16): back to an earlier ref after a stray STEP quote,
+            // keeping the Prev() lookbehind exact (Go() alone leaves a stale prev, bug-287).
+            inline void Rewind(const size_t ref, const char prevChar)
+            {
+              if (ref >= _startRef && ref - _startRef < _currentSize) _pointer = ref - _startRef;
+              else Go(ref);
+              if (_pointer == 0) prev = prevChar;
+            }
 
           private:
             void load();
@@ -153,6 +163,7 @@ namespace webifc::parsing
               std::string_view ReadString(const size_t ptr,const size_t size);
               inline bool IsLoaded() { return _loaded; }
               inline bool HasParseError() const { return _parseFailed; }
+              inline size_t ToleratedTokens() const { return _toleratedTokens; }   // IFC Canvas patch 06
               inline size_t TokenSize() { return _currentSize; }
               inline size_t GetTokenRef() { return _startRef; }
               inline size_t GetMaxSize() { return _chunkSize; }
@@ -187,6 +198,7 @@ namespace webifc::parsing
               void Load();
               bool _loaded=false;
               bool _parseFailed=false;
+              size_t _toleratedTokens=0;   // IFC Canvas patch 06 (D16): per chunk, reset by Load(), kept by Clear()
               size_t _currentSize=0;
               size_t _startRef=0;
               size_t _fileStartRef;

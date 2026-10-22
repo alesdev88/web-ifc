@@ -53,6 +53,12 @@ namespace webifc::parsing {
      return true;
    }
 
+   // IFC Canvas patch 06 (D16): the token stream's sum of per-chunk tallies.
+   size_t IfcLoader::GetToleratedTokenCount() const
+   {
+     return _tokenStream->GetToleratedTokenCount();
+   }
+
    IFC_SCHEMA IfcLoader::GetSchema() const
    { 
       auto line = GetHeaderLinesWithType(schema::FILE_SCHEMA)[0];

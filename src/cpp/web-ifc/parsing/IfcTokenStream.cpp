@@ -29,6 +29,14 @@ namespace webifc::parsing
     return 0;
   }
 
+  // IFC Canvas patch 06 (D16): every chunk's tally is a pure function of its bytes.
+  size_t IfcTokenStream::GetToleratedTokenCount() const
+  {
+    size_t n = 0;
+    for (const auto &chunk : _chunks) n += chunk.ToleratedTokens();
+    return n;
+  }
+
   bool IfcTokenStream::SetTokenSource(const std::function<uint32_t(char *, size_t, size_t)> &requestData, bool fromStream)
   {
       _fileStream = new IfcFileStream(requestData,_chunkSize,fromStream);

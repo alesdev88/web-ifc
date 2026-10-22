@@ -45,6 +45,7 @@ namespace webifc::parsing
       std::vector<char> temp;
       temp.reserve(50);
       _currentSize = 0;
+      _toleratedTokens = 0;   // IFC Canvas patch 06: recomputed on every (re)load, a pure function of the bytes
       while ( !_fileStream->IsAtEnd() && _currentSize < _chunkSize)
       {
         const char c = _fileStream->Get();
@@ -106,27 +107,52 @@ namespace webifc::parsing
         {
           temp.clear();
           _fileStream->Forward();
+          // IFC Canvas patch 06 (D16): the ref right after the opening quote, for the stray-quote rewind.
+          const size_t afterQuote = _fileStream->GetRef();
+          bool tolerated = false;
           while (!_fileStream->IsAtEnd() && _fileStream->Get() != '"')
           {
             const char digit = _fileStream->Get();
             if (BinaryHexDigit(digit) < 0 || temp.size() == MAX_BINARY_LENGTH)
             {
-              spdlog::error("Invalid STEP binary digit or value exceeds 65535 characters");
-              _parseFailed = true;
-              return;
+              // IFC Canvas patch 06 (D16): a non-hex character, or a value longer than
+              // MAX_BINARY_LENGTH, no longer fails the whole file. Scan on (no cap, nothing
+              // kept) to the closing quote, but never past the end of this record.
+              tolerated = true;
+              while (!_fileStream->IsAtEnd() && _fileStream->Get() != '"' && _fileStream->Get() != ';') _fileStream->Forward();
+              break;
             }
             temp.push_back(CanonicalBinaryDigit(digit));
             _fileStream->Forward();
           }
-          if (_fileStream->IsAtEnd() || !IsValidStepBinary(std::string_view(temp.data(), temp.size())))
+          if (_fileStream->IsAtEnd())
           {
             spdlog::error("Invalid or unterminated STEP binary value");
             _parseFailed = true;
             return;
           }
-          Push<uint8_t>(IfcTokenType::BINARY);
-          Push<uint16_t>(temp.size());
-          Push(temp.data(), temp.size());
+          if (tolerated && _fileStream->Get() == ';')
+          {
+            // IFC Canvas patch 06 (D16): a stray quote (the record ends before any closing
+            // quote). Skip the quote alone and tokenise the rest of the record, as 61384fe6 did.
+            _toleratedTokens++;
+            _fileStream->Rewind(afterQuote, '"');
+            continue;
+          }
+          if (tolerated || !IsValidStepBinary(std::string_view(temp.data(), temp.size())))
+          {
+            // IFC Canvas patch 06 (D16): a quoted value that is not a valid STEP binary
+            // (a double-quoted string, a non-canonical or over-long binary) becomes ONE
+            // EMPTY token, so the record keeps its argument count and positions.
+            _toleratedTokens++;
+            Push<uint8_t>(IfcTokenType::EMPTY);
+          }
+          else
+          {
+            Push<uint8_t>(IfcTokenType::BINARY);
+            Push<uint16_t>(temp.size());
+            Push(temp.data(), temp.size());
+          }
         }
         else if (c == '#')
         {

@@ -15,6 +15,10 @@
 #include "../schema/IfcSchemaManager.h"
 #include <ankerl/unordered_dense.h>
 
+// IFC Canvas patch 06 (D16): this kernel tolerates the STEP quote defects e408b654 rejects
+// (see IfcTokenChunk.cpp); the bridge decides per schema whether a tolerated file opens.
+#define IFCCANVAS_WEBIFC_TOKEN_TOLERANCE 1
+
 namespace webifc::parsing
 {
   
@@ -68,6 +72,8 @@ namespace webifc::parsing
       std::string GenerateUUID() const;
       IfcLoader* Clone();
       uint32_t GetNextExpressID(uint32_t expressId) const;
+      // IFC Canvas patch 06 (D16): quote defects the tokenizer tolerated in the loaded file.
+      size_t GetToleratedTokenCount() const;
       template <typename T> void Push(T input)
       {
         _tokenStream->Push(input);
